@@ -35,34 +35,6 @@ function parseSochOutput(text: string): SochResult {
   }
 }
 
-function isTradingInput(text: string) {
-  const t = text.toLowerCase()
-  const keywords = [
-    "trade",
-    "trading",
-    "market",
-    "price",
-    "stop loss",
-    "sl",
-    "tp",
-    "lot",
-    "entry",
-    "exit",
-    "candle",
-    "xauusd",
-    "gold",
-    "forex",
-    "risk reward",
-    "break even",
-    "leverage",
-    "profit",
-    "loss",
-    "setup",
-    "chart",
-  ]
-  return keywords.some((word) => t.includes(word))
-}
-
 export default function Home() {
   const [input, setInput] = useState("")
   const [result, setResult] = useState<SochResult | null>(null)
@@ -80,19 +52,12 @@ export default function Home() {
     setResult(null)
 
     try {
-      const tradingMode = isTradingInput(input)
-
       const res = await fetch("/api/soch", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          input,
-          context: tradingMode
-            ? localStorage.getItem("soch_trading_memory") || ""
-            : "",
-        }),
+        body: JSON.stringify({ input }),
       })
 
       const data = await res.json()
@@ -103,15 +68,8 @@ export default function Home() {
         return
       }
 
-      const parsed = parseSochOutput(data.output || "")
+      const parsed = parseSochOutput(data.result || "")
       setResult(parsed)
-
-      if (tradingMode) {
-        localStorage.setItem(
-          "soch_trading_memory",
-          (localStorage.getItem("soch_trading_memory") || "") + "\n" + input
-        )
-      }
     } catch {
       setError("Could not connect to SOCH brain.")
     }
@@ -155,18 +113,6 @@ export default function Home() {
             A calm, sharp space for clearer thinking, deeper self-understanding,
             and wiser next steps.
           </p>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70">
-              Self-aware guidance
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70">
-              Dharma inspired
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/70">
-              Real clarity
-            </span>
-          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.55fr_0.85fr]">
@@ -178,13 +124,12 @@ export default function Home() {
               What’s really going on?
             </h2>
             <p className="mb-5 text-white/55">
-              Write what happened, what you feel, and what you are struggling to
-              understand or decide.
+              Write what happened, what you feel, and what you are struggling to understand or decide.
             </p>
 
             <textarea
               className="mb-5 min-h-[220px] w-full rounded-[28px] border border-white/10 bg-black/20 p-5 text-white outline-none placeholder:text-white/25 shadow-inner"
-              placeholder="I feel lost... or I entered a trade and now I feel nervous..."
+              placeholder="mujhe zindagi samajhni hai"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
@@ -236,59 +181,41 @@ export default function Home() {
                 <p>3. What decision or confusion you are facing</p>
               </div>
             </div>
-
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
-              <p className="mb-2 text-xs uppercase tracking-[0.35em] text-cyan-200/70">
-                Daily reflection
-              </p>
-              <p className="text-sm leading-7 text-white/65">
-                Ask yourself: am I looking for truth, or just relief from
-                discomfort?
-              </p>
-            </div>
           </div>
         </div>
 
         {result && (
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl transition hover:border-blue-400/20 hover:bg-white/[0.06]">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
               <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-blue-200/70">
                 <span>🫀</span>
                 <span>Core Issue</span>
               </div>
-              <div className="text-lg leading-8 text-white/90">
-                {result.core}
-              </div>
+              <div className="text-lg leading-8 text-white/90">{result.core}</div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl transition hover:border-violet-400/20 hover:bg-white/[0.06]">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
               <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-violet-200/70">
                 <span>🧠</span>
                 <span>Mental Noise</span>
               </div>
-              <div className="text-lg leading-8 text-white/90">
-                {result.noise}
-              </div>
+              <div className="text-lg leading-8 text-white/90">{result.noise}</div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl transition hover:border-cyan-400/20 hover:bg-white/[0.06] md:col-span-2">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl md:col-span-2">
               <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-cyan-200/70">
                 <span>☸️</span>
                 <span>Dharma Truth</span>
               </div>
-              <div className="text-lg leading-8 text-white/90">
-                {result.truth}
-              </div>
+              <div className="text-lg leading-8 text-white/90">{result.truth}</div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl transition hover:border-emerald-400/20 hover:bg-white/[0.06] md:col-span-2">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl md:col-span-2">
               <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-emerald-200/70">
                 <span>🎯</span>
                 <span>Best Next Step</span>
               </div>
-              <div className="text-lg leading-8 text-white/90">
-                {result.step}
-              </div>
+              <div className="text-lg leading-8 text-white/90">{result.step}</div>
             </div>
 
             <div className="rounded-[32px] bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 p-6 text-2xl font-bold text-white shadow-2xl shadow-indigo-500/25 md:col-span-2">

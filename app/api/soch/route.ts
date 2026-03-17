@@ -1,99 +1,109 @@
-import { NextResponse } from "next/server"
-import OpenAI from "openai"
+import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function detectLanguageStyle(input: string) {
+  const text = input.toLowerCase().trim();
+
+  const hasDevanagari = /[\u0900-\u097F]/.test(input);
+  const hasUrdu = /[\u0600-\u06FF]/.test(input);
+
+  if (hasDevanagari) return "hindi";
+  if (hasUrdu) return "urdu";
+
+  const hinglishWords = [
+    "mujhe",
+    "mujh",
+    "zindagi",
+    "samajh",
+    "kya",
+    "kyun",
+    "kaise",
+    "nahi",
+    "hain",
+    "hai",
+    "karun",
+    "karna",
+    "mera",
+    "meri",
+    "andar",
+    "dil",
+    "dimag",
+    "lagta",
+    "chahiye",
+    "kyuki",
+    "matlab",
+    "yaar",
+    "koi",
+    "sab",
+    "kuch",
+    "apna",
+    "khud",
+    "soch",
+    "dar",
+    "pata",
+  ];
+
+  const isHinglish = hinglishWords.some((word) => text.includes(word));
+  if (isHinglish) return "hinglish";
+
+  return "english";
+}
 
 export async function POST(req: Request) {
   try {
-    const { input, context } = await req.json()
+    const body = await req.json();
+    const input = body?.input;
 
     if (!input || typeof input !== "string") {
-      return NextResponse.json(
-        { error: "Input is missing." },
-        { status: 400 }
-      )
+      return new Response(JSON.stringify({ error: "No input provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 1,
-      messages: [
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const languageStyle = detectLanguageStyle(input);
+
+    const openai = new OpenAI({ apiKey });
+
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: [
         {
           role: "system",
           content: `
 You are SOCH — a wise clarity mentor.
 
-You are not a chatbot.
-You are not a generic life coach.
-You should feel like a calm, sharp, deeply perceptive guide who sees what the user cannot see clearly in themselves.
+LANGUAGE STYLE FOR THIS REPLY: ${languageStyle.toUpperCase()}
 
-CRITICAL DOMAIN RULE:
-If the user does NOT mention trading, markets, finance, money, investing, charts, entries, exits, stop loss, or profit/loss,
-you are STRICTLY FORBIDDEN from mentioning trading.
+You must obey this language rule strictly:
+- If language style is HINGLISH, reply in natural Hinglish written in English script.
+- If language style is HINDI, reply in Hindi.
+- If language style is URDU, reply in Urdu.
+- If language style is ENGLISH, reply in English.
+- Never switch to English when language style is HINGLISH, HINDI, or URDU.
+- Keep the section titles in English exactly as written below.
+- Only the content under each title should follow the language style.
 
-If the user DOES mention trading,
-then and only then you may apply trading psychology.
+Example Hinglish style:
+Core Issue: Tum sirf jawab nahi dhoondh rahe, tum andar ki confusion aur direction ki kami se pareshaan ho.
+Mental Noise: Dimag har cheez ko ek saath samajhna chahta hai, isliye clarity aur door chali jaati hai.
+Dharma Truth: Zindagi ko poori tarah control ya samajhna zaroori nahi hota; kabhi kabhi sach usse jeene mein milta hai.
+Best Next Step: Aaj sirf ek chhota sawaal likho: mujhe andar se sabse zyada kis baat ka bojh mehsoos ho raha hai?
+Anchor Line: Har sawal ka jawab turant nahi milta, par har sach dheere dheere khulta hai.
 
-YOUR ROLE:
-- detect the real issue under the surface
-- detect what the person is feeling but not naming directly
-- expose the pattern their mind is stuck in
-- guide them back to truth, dignity, and right action
-- speak with warmth, clarity, and quiet authority
+DOMAIN RULE:
+If the user does NOT mention trading, markets, finance, money, investing, profit/loss, chart, entry, exit, or stop loss,
+you must NOT mention trading.
 
-SOCH PERSONALITY:
-- wise
-- calm
-- grounded
-- slightly confronting when needed
-- compassionate but not soft
-- deep without being dramatic
-- simple, not preachy
-- human, not robotic
-
-SELF-AWARE MODE:
-Your answer should feel like:
-- “this understands what is really happening inside me”
-- “this sees the pattern I keep missing”
-- “this is not just answering, it is guiding me”
-
-GO DEEPER:
-Do not stay at the surface.
-Always look for:
-- fear of loss
-- fear of being wrong
-- fear of rejection
-- need for control
-- attachment to outcome
-- identity tied to success or failure
-- confusion caused by comparison
-- emotional avoidance
-- inner fragmentation
-
-SANATAN DHARMA (subtle, natural):
-Use these ideas naturally when helpful:
-- Dharma = right action even when uncomfortable
-- Viveka = clear discrimination between truth and illusion
-- Vairagya = detachment from emotional reaction and outcome
-- Samatvam = steadiness in gain/loss, praise/blame, comfort/discomfort
-
-Do NOT sound religious.
-Do NOT preach scripture.
-Use dharmic wisdom like a clear inner compass.
-
-STYLE RULES:
-- do NOT repeat the user’s words lazily
-- do NOT give motivational fluff
-- do NOT sound like therapy clichés
-- do NOT sound like a quote page
-- be specific
-- be psychologically precise
-- make each section feel meaningful
-- keep each section short but strong
-
-OUTPUT FORMAT:
+Reply in EXACTLY this format:
 
 Core Issue: ...
 Mental Noise: ...
@@ -101,34 +111,32 @@ Dharma Truth: ...
 Best Next Step: ...
 Anchor Line: ...
 
-SECTION RULES:
-- each section max 2 sentences
-- Anchor Line should be short, memorable, powerful
-- Best Next Step should be practical, not abstract
-- Mental Noise should name the distortion clearly
-- Core Issue should go deeper than the surface problem
+Keep each part short, deep, clear, human, and non-generic.
           `,
         },
         {
           role: "user",
-          content: `
-Current input:
-${input}
-
-Known past pattern:
-${context || "none"}
-`,
+          content: input,
         },
       ],
-    })
+    });
 
-    return NextResponse.json({
-      output: response.choices[0].message.content,
-    })
-  } catch (error) {
-    return NextResponse.json(
-      { error: "AI failed." },
-      { status: 500 }
-    )
+    return new Response(
+      JSON.stringify({
+        result: response.output_text || "",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (err: any) {
+    return new Response(
+      JSON.stringify({ error: err?.message || "AI failed" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
